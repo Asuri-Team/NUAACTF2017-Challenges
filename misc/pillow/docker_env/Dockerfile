@@ -27,9 +27,11 @@ RUN mkdir -p /opt/ghostscript \
 #     && mv /opt/ghostscript/gs-921-linux-x86_64 /usr/local/bin/gs
 
 ARG PY_SRC=src/
-ADD $PY_SRC /tmp/src
+ADD $PY_SRC /app/
+RUN useradd -U -m pillow && chmod 644 /app/flag.txt
 
-WORKDIR /tmp/src
-EXPOSE 8080
+WORKDIR /app/
+EXPOSE 8000
+USER pillow
 
 CMD [ "sh", "-c", "python app.py" ]
