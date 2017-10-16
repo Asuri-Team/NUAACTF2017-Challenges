@@ -2,6 +2,7 @@
 # include <string.h>
 # include <stdio.h>
 # include <time.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -165,6 +166,7 @@ void beginStory(int* secret){
 int main(int argc, char *argv[])
 {
       setbuf(stdout, 0);
+      alarm(60);
       char user_input[100];
       int *secret;
       long int_input = 0;

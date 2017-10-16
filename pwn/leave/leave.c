@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+
 //gcc -fno-stack-protector -z execstack -m32 -o leave leave.c && strip -s leave
 
 char put_buf[1024];
@@ -17,7 +19,7 @@ int echo()
 {
   handle_user_input();
   puts(put_buf);
-  return fflush(stdout);
+  return 0;
 }
 
 
@@ -37,6 +39,8 @@ void main_func(){
 
 int main()
 {
+	alarm(60);
+	setbuf(stdout, 0);
 
 	puts("~~ welcome to nuaa ctf ~~");
 	main_func();
