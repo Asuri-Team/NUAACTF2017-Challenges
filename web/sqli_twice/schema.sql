@@ -7,7 +7,3 @@ CREATE TABLE `users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-LOCK TABLES `users` WRITE;
-INSERT INTO `users` VALUES (1,'admin','sao_miao_qi_shi_mei_yong_de',1);
-UNLOCK TABLES;
