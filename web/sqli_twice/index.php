@@ -58,15 +58,27 @@ function register() {
     style();
     if (isset($_POST['username']) && isset($_POST['password'])) {
         $username = $_POST['username'];
-        $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
-        // using prepare to prevent sql injection
-        $stmt = $db->prepare('INSERT INTO `users` (`username`, `password`, `admin`) VALUES (?, ?, 0)');
-        $stmt->bind_param('ss', $username, $password);
-        $stmt->execute();
-        if ($stmt->affected_rows === 1) {
-            tab('注册成功 :)', 'success');
+        if (strlen($_POST['password']) < 8) {
+            tab('密码过短 :(', 'error');
+        } else if (!preg_match('/[0-9]/', $_POST['password'])) {
+            tab('密码需要包含至少一个英文数字 :(', 'error');
+        } else if (!preg_match('/[a-z]/', $_POST['password'])) {
+            tab('密码需要包含至少一个小写字母 :(', 'error');
+        } else if (!preg_match('/[A-Z]/', $_POST['password'])) {
+            tab('密码需要包含至少一个大写字母 :(', 'error');
+        } else if (preg_match('/123|abc|qwe|asd|zxc/i', $_POST['password'])) {
+            tab('密码尽量不要包含易猜解的串 :(', 'error');
         } else {
-            tab('用户已存在 :(', 'error');
+            $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
+            // using prepare to prevent sql injection
+            $stmt = $db->prepare('INSERT INTO `users` (`username`, `password`, `admin`) VALUES (?, ?, 0)');
+            $stmt->bind_param('ss', $username, $password);
+            $stmt->execute();
+            if ($stmt->affected_rows === 1) {
+                tab('注册成功 :)', 'success');
+            } else {
+                tab('用户已存在 :(', 'error');
+            }
         }
     } else {
         tab('请填写信息 :(', 'error');
@@ -111,6 +123,9 @@ function info() {
         $admin = intval($res->fetch_assoc()['admin']);
         if ($admin === 1) {
             echo '<div>Flag: <pre>' . FLAG . '</pre></div>';
+            echo '<br><br><div style="color:red">检测到入侵！即将删除该账户……<br><br>账户已删除，系统将在三秒内注销。</div>';
+            echo '<meta http-equiv="refresh" content="3; url=?action=logout">';
+            require_once './threat.php';
         } else {
             echo '<p>Flag: 只有管理员才可以看。</p>';
         }
@@ -158,6 +173,7 @@ style();
     <p>
         <label>密码</label>
         <input type="password" name="password">
+        <div>* 密码至少需要八位字符，其中需要出现英文数字、大写和小写字母至少一次，且尽量不要包含易猜解的串。</div>
     </p>
     <input type="submit" value="注册" class="btn">
 </form>

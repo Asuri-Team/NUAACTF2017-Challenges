@@ -41,6 +41,8 @@ window.onmessage = function (e) {
         tab.innerText = d.error;
         output.innerText = '';
     } else if (d.console !== undefined) {
+        tab.className = 'rs-tab rs-tab-warning';
+        tab.innerText = 'Not the answer yet...';
         output.innerText = d.console;
     }
 };
