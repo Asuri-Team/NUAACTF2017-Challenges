@@ -4,10 +4,10 @@ if (!defined('CTF')) {
     die('hacking attempt.');
 }
 
-define('DBHOST', '127.0.0.1');
-define('DBUSER', 'rexskz');
-define('DBPASS', '2147483647');
+define('DBHOST', 'db');
+define('DBUSER', 'sqli');
+define('DBPASS', 'sqli');
 define('DBPORT', 3306);
-define('DBNAME', 'ctf_test');
+define('DBNAME', 'sqli');
 
 define('FLAG', 'nuaactf{do_!_B_anxious_MY_friend.}');

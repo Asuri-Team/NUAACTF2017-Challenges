@@ -4,6 +4,7 @@
 
 int main()
 {
+  setbuf(stdout, 0);
   printf("Do U know the secret of heap?\n");
   puts("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
   printf("If you don't know, please read the source code of malloc function!\n");
