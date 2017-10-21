@@ -57,8 +57,10 @@ function register() {
     global $db;
     style();
     if (isset($_POST['username']) && isset($_POST['password'])) {
-        $username = $_POST['username'];
-        if (strlen($_POST['password']) < 8) {
+        $username = trim($_POST['username']);
+        if (strlen($username) <= 0) {
+            tab('用户名不能为空 :(', 'error');
+        } else if (strlen($_POST['password']) < 8) {
             tab('密码过短 :(', 'error');
         } else if (!preg_match('/[0-9]/', $_POST['password'])) {
             tab('密码需要包含至少一个英文数字 :(', 'error');
