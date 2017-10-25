@@ -48,13 +48,13 @@ Sorry, this is not the real flag.
 ```
 require_once(): Failed opening required 'flag.php.php'
 ```
-说明原本查询的文件为flag.php，require_once()不会显示符合php代码格式的内容
+说明原本查询的文件为flag.php，注意，require_once()，对于符合PHP语法的语句，会被包含进index.php并解析，不符合的将直接以文本形式显示。
 
 2. 或者删去查询字符串，执行
 ```
 curl "http://localhost/www/index.php"
 ```
-发现原页面内容为空，显然?file=flag了一部分，进一步猜想php代码没有被显示。
+发现原页面内容为空，显然?file=flag影响了页面显示，也就是说flag这个文件是存在的，猜想flag文件有一部分没有显示出来。
 
 3. 最后用php://filter/read=convert.base64-encode/resource=flag即可显示文件内容，只需再base64解码即可。
 
