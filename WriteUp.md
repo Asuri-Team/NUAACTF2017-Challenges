@@ -44,17 +44,17 @@ Sorry, this is not the real flag.
 ```
 这题虽然200分，入手点还是有很多的。
 
-1. 尝试修改查询字符串(随便修改)，会报错
+1. 尝试修改查询字符串为flag.php(随便修改)，会报错
 ```
 require_once(): Failed opening required 'flag.php.php'
 ```
-说明原本查询的文件为flag.php，require_once('flag.php')将其中的php代码执行而没有输出
+说明原本查询的文件为flag.php，require_once()不会显示符合php代码格式的内容
 
 2. 或者删去查询字符串，执行
 ```
 curl "http://localhost/www/index.php"
 ```
-发现原页面内容为空，显然假的flag显示是包含的文件，进一步猜想php代码没有显示。
+发现原页面内容为空，显然?file=flag了一部分，进一步猜想php代码没有被显示。
 
 3. 最后用php://filter/read=convert.base64-encode/resource=flag即可显示文件内容，只需再base64解码即可。
 
