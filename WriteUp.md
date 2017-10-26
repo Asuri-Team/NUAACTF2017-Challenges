@@ -110,6 +110,476 @@ flag: nuaactf{NOT_the_jsF**k_at_a11}
 
 ## 0x01 REV
 
+## pychon
+
+#### **【原理】**  文件头魔数，.pyc反编译
+
+首先看后缀，是一个.pyc文件。由于pyc文件我们自己不好运行，于是可以直接丢当网上反编译一下:
+[http://tool.lu/pyc/](http://tool.lu/pyc/)
+![](res/rev0_0.png)
+这种完全无法编译的原因，一般都是因为头部开始就解析错误。
+
+```
+RuntimeError: Bad magic number in .pyc file
+```
+然后上网查看这个文件格式的magic number到底是个啥，再stackoverflow上能够找到一个:
+[http://www.jianshu.com/p/03d81eb9ac9b](http://www.jianshu.com/p/03d81eb9ac9b)
+首先magic number的解释是
+`The magic number comes from UNIX-type systems where the first few bytes of a file held a marker indicating the file type.`
+也就是说，这个magic number是.pyc文件的标识符，如果开头不为那个固定的格式的话，就不能解析这个文件。
+pyc开头固定四个字节为:
+```
+xx xx 0d 0a
+```
+xx依据版本号不同而不同，这里我们使用任何一个能够看到二进制的编辑器打开，能够看到:
+```
+16 0d 01 0a
+```
+显然有一位错误了，我们把其改成
+```
+16 0d 0d 0a 
+```
+然后运行，发现没有结果（当然，我这边用的是python3.5，如果使用了不同的版本的同学应该还是发生这个错误），然后再次丢当网上反编译一下，得到:
+```
+#!/usr/bin/env python
+# encoding: utf-8
+# 访问 http://tool.lu/pyc/ 查看更多信息
+if __name__ == '__main__':
+    str0 = [81,91,52,76,53,72,88,57,60,85,60,56,88,64,112,74]
+    str1 = [1,2,3,4,5,6,7,8,9,10,9,8,7,6,5,4]
+    ans = ''
+    for (i, j) in zip(str0, str1):
+ans += chr(i ^ j)
+    
+    flag = 'nuaactf{%s}' % ans
+
+```
+发现没有输出，自己执行一遍程序得到答案。
+
+
+## b1nary
+
+#### **【原理】** .exe文件逆向分析
+
+首先打开，发现似乎不能IDA F5大法，于是直接查看代码逻辑:
+![](/res/rev2_2.png)
+关键的逻辑就是这段，将input和edx为基址的变量进行亦或，如果xor不为0的话，那么会比较esi中的值
+![](/res/rev2_3.png)
+如果不相等的话会输出"Well down!"，否则的话输出failed
+于是思路就是将两个地址中的数据想亦或，就能得到答案:
+![](/res/rev2_4.png)
+这里提一下，由于是C++中的string类型，所以会在程序开始的时候才进行初始化，也就是说，上述的地址只有在动态调试的时候才能够见的到。
+最后写一个简单的脚本:
+```
+t1 = "Mht!^okHGfdCbn!@4t>"
+t2 = [26,13,85,98,17,2,88,23,117,57,42,54,86,15,66,52,82,69]
+for i,j in zip(t1,t2):
+    print(chr(ord(i)^j),end = '')
+
+# We!COm3_2_Nu4actf1
+```
+
+## robots
+
+#### **【原理】** app逆向分析，elf文件逆向分析，数据库文件查看
+
+发现是一个app，下载下来看一看:
+![](res/rev1_0.jpg)
+看到是一个输入框，然后如果随便输入的话，会显示
+```
+Ennnnnn........No.Right...
+```
+我们拿出jeb进行简单的分析，找到里面一个关键的逻辑:
+```java
+public void onClick(View arg4) {
+        if(this.c.check(this.getSecret(this.userEdit.getText().toString()), ((Context)this))) {
+            this.tv.setText("Well done!");
+        }
+        else {
+            this.tv.setText("Ennnnnn........No.Right...");
+        }
+    }
+```
+这里的调用过程调用了一个叫做c.check的方法，顺着找进去
+```java
+ CheckAns() {
+        super();
+        this.name = "aGVsbG8=";
+    }
+
+    public boolean check(String arg9, Context arg10) {
+        boolean v5 = false;
+        Cursor v0 = new SQLAm().openDatabase(arg10).rawQuery("SELECT * FROM user1 WHERE name=\'" + CheckAns.md5(new String(Base64.decode(this.name, 0))) + "\'", null);
+        v0.moveToNext();
+        String v4 = v0.getString(v0.getColumnIndex("secret"));
+        if(arg9.length() == 20 && (v4.equals(arg9))) {
+            v5 = true;
+        }
+
+        return v5;
+    }
+```
+大致就是说用打开了一个sqlite的数据库，并且再其中取出了当前name的md5值对应的那个数据。
+我们可以看到，name是一个base64编码过的数据，然后将其解码后md5，得到的数值为:
+```
+5d41402abc4b2a76b9719d911017c592
+```
+然后我们解开当前的apk，可以看到里面再asset里面有一个叫做test的文件，其即为我们的数据库。我们打开数据库，能够看到里面的数据为:
+![](res/rev1_1.png)
+然后取出我们查找的字符串:
+```
+kEvKc|roAkNADgGExUeq
+```
+这个长的也不像flag啊。。然而可以注意到，再一开始的时候，我们再取得字符串之前有一个getSecret的函数，这个函数在哪里呢？
+```java
+public native String getSecret(String arg1) {
+}
+```
+也就是说，这个函数是写在.so文件中的，我们找到其中一个.so文件，反编译一下:
+![](res/rev1_2.png)
+找到这个函数之后，理清楚一下逻辑:
+程序里面存开始就放了要给字符串数组:
+![](res/rev1_3.png)
+接下来分析逻辑
+首先我们会往dest数组中存入数组下标
+[0-0x44]
+然后会把当前的数组的数字向后循环移动16
+```
+  for ( i = 0; ; ++i )
+  {
+    i_1 = i;
+    v3 = getLength(&static_ptr);
+    if ( i_1 >= v3 )
+      break;
+    v27 = dest[i] + 16;
+    v26 = getLength(&static_ptr);
+    dest[i] = v27 % v26;
+  }
+```
+接下来的逻辑可以理解成：
+将当前的inputstr和之前存入的static_str作比较，如果相等的话，使用dest数组中映射过的下标替换当前的字符串。
+最后还有一段加密的逻辑：
+```
+  for ( l = 0; ; ++l )
+  {
+    v17 = l;
+    v6 = getLength(&input_ptr);
+    if ( v17 >= v6 )
+      break;
+    v16 = (_BYTE *)getChar(&input_ptr, l);
+    v15 = (char)(l ^ *v16) % -128;
+    v14 = (_BYTE *)getChar(&input_ptr, l);
+    *v14 = v15;
+  }
+```
+替换过的字符串还要和当前下标异或，得到的字母%128（不过一般是不会超过128的）。最后输入处理完之后要得到我们从数据库里面拿出来的字符串:`kEvKc|roAkNADgGExUeq`
+那么我们剩下的操作大致就可以知道了:利用脚本将偏移后的字符串重新移位回去即可；
+```python
+static_str = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!{|}~'
+now = 'kEvKc|roAkNADgGExUeq'
+for i,each in enumerate(now):
+    tmp = chr(ord(each)^i%128)
+    index = static_str.find(tmp)
+    if index < 16:
+        index = index + len(static_str)
+    print(static_str[index-16],end ='')
+```
+得到答案为:
+```
+4ndr0id1s!ntr3st1ng!
+```
+
+## nuaactf
+
+#### **【原理】** .jar 文件反编译, 爆破
+
+这个程序是一个jar文件，要用java环境才能运行。初步运行之后逻辑如下:
+![](res/rev3_2.png)
+发现是要我们输入一个字符串作为key。然后我们使用jd-gui观察一下逻辑:
+![](res/rev3_1.png)
+发现里面把一个叫做Nazo的类叫做encode，作为加密函数，我们看到加密函数本身非常复杂，但是有几处奇怪的数字:
+```
+int a = 1732584193;
+int b = -271733879;
+int c = -1732584194;
+int d = 271733878;
+int e = -1009589776;
+```
+这些数字是用来做什么的呢？百度一下之后能够发现，这些数字都是MD5加密的时候用到的数字，然后最后有一个逻辑便是将这个MD5映射后的数据进行比较的逻辑。那么此时我们先猜测这个数据是啥:
+```java
+ if (in.length() != 4) {
+      throw new Exception("INCORRECT KEY");
+    }
+```
+这里可以看出，输入字符串的长度为4，那么我们进行爆破:
+```
+import hashlib, string
+
+def findSha1():
+    for i in string.printable:
+        for j in string.printable:
+            for k in string.printable:
+                for l in string.printable:
+                    if hashlib.sha1((i+j+k+l).encode('utf-8')).hexdigest() == "caf4cbafdf72ce0f2f2eadc4309916e8c96f0de8":
+                        print(i+j+k+l)
+                        return i+j+k+l
+
+        print(i+j+k+l)
+
+if __name__ == '__main__':
+    print("find key {}".format(findSha1()))
+
+```
+得到key为mdzz。。。好吧，然后我们继续查看逻辑:
+```java
+if (Check.checkPassword(password))
+{
+  a = a14b64a0683594003b4efe8a2285acd8.getInstance();
+  a.code = t;
+  Object clazz = a.loadClass("com.company.Stage");
+  Method c = ((Class)clazz).getMethod("Start", new Class[] { new String().getClass() });
+  c.invoke(((Class)clazz).newInstance(), new Object[] { t });
+}
+```
+这一段是java的载入过程的调用，就相当于是手动读入一个java的class，然后去调用这个class。然后我们跟入这个看起来很奇怪的类里面，发现里面重载了findClass这个函数:
+![](res/rev3_3.png)
+从这个函数的大致内容可以看出来，过程就是:
+
+ * 将我们传入参数中的最后一个类的名字，也就是当前类的名字取出来
+ * 将这个名字md5处理一下，然后重新形成新的包的名字
+ * 接下来将当前的包读入，进行AES解密，其中iv为"****************"，key为我们之前爆破的内容。
+ * 最后将类返回
+
+既然知道了逻辑，我们就将当前的所有.class解密一下
+(仅为参考代码)
+```java
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.io.*;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+/**
+ * Created by link on 2017/10/1.
+ */
+public class Decode {
+    private static String code = "mdzz";
+
+    public static String md5(String string)
+    {
+        if (string.isEmpty()) {
+            return "";
+        }
+        MessageDigest md5 = null;
+        try
+        {
+            md5 = MessageDigest.getInstance("MD5");
+            byte[] bytes = md5.digest(string.getBytes());
+            String result = "";
+            for (byte b : bytes)
+            {
+                String temp = Integer.toHexString(b & 0xFF);
+                if (temp.length() == 1) {
+                    temp = "0" + temp;
+                }
+                result = result + temp;
+            }
+            return result;
+        }
+        catch (NoSuchAlgorithmException e)
+        {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
+    public static void decodeClass(String name)
+    {
+        // File file = new File(name);
+        InputStream in = null;
+        FileOutputStream out = null;
+        try {
+            in = new FileInputStream(name);
+            out = new FileOutputStream(name + "_decode.class");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        long len = 0L;
+        try
+        {
+            len = in.available();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        byte[] raw = new byte[(int)len];
+        int off = 0;int rst = 0;
+        try
+        {
+            for (;;)
+            {
+                rst = in.read(raw, off, (int)len);
+                if (rst == len) {
+                    break;
+                }
+                off += rst;
+                len -= rst;
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        String ivStr = "****************";
+        MessageDigest md = null;
+        try
+        {
+            md = MessageDigest.getInstance("MD5");
+        }
+        catch (NoSuchAlgorithmException e)
+        {
+            e.printStackTrace();
+        }
+        assert (md != null);
+        md.update(code.getBytes());
+        byte[] key = md.digest();
+        Cipher AES = null;
+        try
+        {
+            AES = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        }
+        catch (NoSuchAlgorithmException e)
+        {
+            e.printStackTrace();
+        }
+        catch (NoSuchPaddingException e)
+        {
+            e.printStackTrace();
+        }
+        SecretKeySpec spec = new SecretKeySpec(key, "AES");
+        IvParameterSpec iv = new IvParameterSpec(ivStr.getBytes());
+        try
+        {
+            assert (AES != null);
+            AES.init(2, spec, iv);
+        }
+        catch (InvalidAlgorithmParameterException e)
+        {
+            e.printStackTrace();
+        }
+        catch (InvalidKeyException e)
+        {
+            e.printStackTrace();
+        }
+        byte[] en = null;
+        try
+        {
+            en = AES.doFinal(raw);
+        }
+        catch (BadPaddingException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IllegalBlockSizeException e) {
+            e.printStackTrace();
+        }
+        try {
+            out.write(en);
+            out.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+    public static void main(String argv[]){
+        String filename = FilePath;
+        for(int i = 2; i <= 8; i++){
+            decodeClass(filename + md5(String.format("Stage%d", i)) + ".class");
+        }
+        return ;
+    }
+}
+```
+解密之后，重新查看各个类。可以看到，首先是进入了Stage.class里面查看函数:
+```java
+  try
+    {
+      clazz = this.step.loadClass("com.company.Stage2");
+    }
+    catch (ClassNotFoundException e)
+    {
+      e.printStackTrace();
+    }
+    Method c = null;
+    byte[] ans = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        try
+    {
+      c = clazz.getMethod("check", new Class[] { new byte[0].getClass() });
+    }
+    catch (NoSuchMethodException e)
+    {
+      e.printStackTrace();
+    }
+    try
+    {
+      ans = (byte[])c.invoke(null, new Object[] { flag.getBytes() });
+    }
+```
+看到这里调用了Stage2类,并且再后面调用了check函数，我们继续跟踪,然后发现大概内容和Stage一样，只不过这一次调用了Stage5，并且有函数:
+```java
+    for (int i = 0; i < flag.length; i++) {
+      if (i % 3 == 0) {
+        flag[i] = ((byte)(flag[i] ^ 0x6));
+      }
+    }
+```
+这里把%3 == 0的下标对用的数据都进行了^0x6
+Stage5中调用了Stage7，其中的加密逻辑则是如下:
+```java
+    for (int i = 0; i < flag.length; i++) {
+      if ((i + 2) % 3 == 0) {
+        flag[i] = ((byte)(flag[i] ^ 0x33));
+      }
+    }
+```
+Stage7中却没有任何加密，直接返回了flag。
+
+Stage类最后还有一段比较内容:
+```java
+byte[] checkflag = { 100, 106, 55, 53, 80, 48, 66, 0, 95, 81, 2, 55, 110, 108, 67, 54, 119, 51 };
+    for (int i = 0; i < checkflag.length; i++) {
+      if (checkflag[i] != ans[i])
+      {
+        System.out.println("Oh, what a pity~");
+        return;
+      }
+    }
+    System.out.printf("Congratulation! flag is nuaactf{%s}", new Object[] { flag });
+  }
+```
+那么显然我们的的flag已经呼之欲出了:
+```python
+for i,j in enumerate( checkflag):
+    if i %3 == 0:
+        print(chr(checkflag[i]^0x6),end = '')
+    elif (i+2) % 3 == 0:
+        print(chr(checkflag[i]^0x33),end ='')
+    else:
+        print(chr(checkflag[i]),end ='')
+
+```
+得到flag为：
+```
+bY73c0D3_W17h_C0D3
+```
+
 ## 0x02 PWN
 
 ## 0x04 MISC
